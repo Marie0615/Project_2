@@ -2,11 +2,16 @@ import os
 import pandas as pd
 import numpy as np
 import sqlalchemy
+import dash
+import dash_core_components as dcc
+import dash_html_components as html
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
 from flask import Flask, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
+
+
 
 app = Flask(__name__)
 
@@ -41,7 +46,7 @@ def top_apps_data():
     # Query for the top 10 apps data
     results = db.session.query(Appsdata.App_Name, Appsdata.Installs).\
         order_by(Appsdata.Installs.desc()).\
-        limit(10).all()
+        limit(20).all()
 
     # Create lists from the query results
     apps_category = [result[0] for result in results]
@@ -62,7 +67,7 @@ def app_name_data():
     # Query for the top 10 app rating
     results = db.session.query(Appsdata.App_Name, Appsdata.Rating).\
         order_by(Appsdata.Rating.desc()).\
-        limit(10).all()
+        limit(20).all()
     df = pd.DataFrame(results, columns=['App_Name', 'Rating'])
 
     # Format the data for Plotly
@@ -73,6 +78,47 @@ def app_name_data():
     }
     return jsonify(plot_trace)
 
+@app.route("/App_Count")
+def app_count_data():
+    """Return app count by category"""
+    stmt = db.session.query(Appsdata).statement
+    df = pd.read_sql_query(stmt, db.session.bind)
+    #df = pd.read_csv(
+    #    'googleplaystore.csv')
 
+    #print("df:")
+    #print(df)
+
+    reduced_df = df.loc[: , ['Category' , 'Installs']]
+    #print("reduced_df:")
+    #print(reduced_df)
+
+    reduced_df['Installs'] = reduced_df['Installs']
+    grouped_reduced_df = reduced_df.groupby(['Category']).count()
+   # print("grouped:")
+    #print(list(grouped_reduced_df.index))
+
+    category_list = list(grouped_reduced_df.index)
+    installs_count = list(grouped_reduced_df['Installs'])
+
+   # Format the data for Plotly
+    plot_trace = {
+        "x": category_list,
+        "y": installs_count,
+        "type": "bar"
+        
+    }
+    return jsonify(plot_trace)
+
+@app.route("/MyData")
+def Mydata():
+    """Return google playstore apps top 10"""
+
+    stmt = db.session.query(Appsdata).statement
+    df = pd.read_sql_query(stmt, db.session.bind)
+    
+    return jsonify(df.to_dict())
+
+   
 if __name__ == '__main__':
     app.run(debug=True)
